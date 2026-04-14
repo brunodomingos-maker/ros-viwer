@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Run of Show — Live</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--bg:#0d0f14;--border:rgba(255,255,255,.08);--text:#e4e8f0;--muted:rgba(255,255,255,.35);--blue:#4a7cf7;--green:#3dd68c;--amber:#f5a623;--purple:#9b6bff;--cyan:#22d3ee;--red:#f05252}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;font-size:13px;overscroll-behavior:none}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+.top{height:48px;background:#0a0c10;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0}
+.logo{width:28px;height:28px;border-radius:6px;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff}
+.show-name{font-size:13px;font-weight:700;color:#fff;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{padding:2px 7px;border-radius:4px;background:rgba(61,214,140,.15);color:var(--green);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;transition:background .3s}
+.clock{font-family:'Courier New',monospace;font-size:15px;font-weight:700;color:var(--green);flex-shrink:0}
+.tabs{height:32px;background:#0a0c10;border-bottom:1px solid var(--border);display:flex;align-items:flex-end;padding:0 10px;gap:2px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.tabs::-webkit-scrollbar{display:none}
+.tab{height:26px;padding:0 14px;border-radius:5px 5px 0 0;border:1px solid transparent;border-bottom:none;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);background:none;font-family:inherit;white-space:nowrap}
+.tab.active{background:var(--bg);border-color:var(--border);color:#fff}
+.content{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:580px}
+thead{position:sticky;top:0;z-index:10;background:#080a0e}
+th{padding:6px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:0;vertical-align:top;border-bottom:1px solid rgba(255,255,255,.04)}
+.cell{padding:7px 10px;line-height:1.45;word-break:break-word;font-size:12px}
+.item-name{font-weight:700;font-size:12px;color:#fff}
+.item-speaker{font-size:10px;color:var(--muted);margin-top:1px}
+.item-meta{font-size:10px;color:var(--muted);margin-top:2px;font-family:'Courier New',monospace}
+.dept{display:inline-block;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:800;margin:2px 1px 0}
+.sec-row td{background:rgba(74,124,247,.07)}
+.sec-name{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:5px 12px;color:var(--blue)}
+.live-row td{background:rgba(74,124,247,.09)!important}
+.live-row .item-name{color:var(--blue)}
+.done-row td{opacity:.35}
+.prog-bar{height:2px;background:rgba(255,255,255,.05);border-radius:1px;margin-top:5px;overflow:hidden}
+.prog-fill{height:100%;background:var(--blue);border-radius:1px;transition:width 1s linear}
+.dl{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:rgba(61,214,140,.1);border:1px solid rgba(61,214,140,.2);color:var(--green);text-decoration:none;font-size:10px;margin-left:3px;vertical-align:middle}
+.statusbar{height:38px;background:#080a0e;border-top:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:14px;flex-shrink:0}
+.sb{font-size:10px;color:var(--muted)}
+.sb strong{color:var(--text);font-family:'Courier New',monospace}
+.loader{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;color:var(--muted);font-size:13px;text-align:center;padding:20px}
+.spin{width:22px;height:22px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:600px){.hide-mob{display:none}}
+</style>
+</head>
+<body>
+<div id="loadView" class="loader"><div class="spin"></div><span id="loadMsg">A carregar...</span></div>
+<div class="app" id="appView" style="display:none">
+  <div class="top">
+    <div class="logo">ROS</div>
+    <div class="show-name" id="topName">Run of Show</div>
+    <div class="badge">LIVE</div>
+    <div class="sync-dot" id="dot"></div>
+    <div class="clock" id="clk">00:00:00</div>
+  </div>
+  <div class="tabs" id="tabBar"></div>
+  <div class="content">
+    <table>
+      <thead><tr>
+        <th style="width:30px">#</th>
+        <th style="min-width:180px">Item</th>
+        <th style="width:64px">Dur.</th>
+        <th style="width:60px">Start</th>
+        <th style="width:110px">Audio</th>
+        <th style="width:85px">Micro</th>
+        <th style="width:70px" class="hide-mob">Video</th>
+        <th style="width:120px" class="hide-mob">Lights</th>
+        <th style="width:85px" class="hide-mob">Stage</th>
+        <th style="width:85px" id="th0" class="hide-mob">Screen 1</th>
+        <th style="width:85px" id="th1" class="hide-mob">Screen 2</th>
+        <th style="width:85px" id="th2" class="hide-mob">Screen 3</th>
+        <th style="width:85px" id="th3" class="hide-mob">Screen 4</th>
+        <th style="min-width:120px">Notes</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="statusbar">
+    <div class="sb">Items: <strong id="stN">0</strong></div>
+    <div class="sb">Wrap: <strong id="stW">--:--</strong></div>
+    <div class="sb" style="margin-left:auto" id="stSync"></div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+// Sheet ID é injectado via URL: ?sheet=SHEET_ID  ou  #sheet=SHEET_ID
+var SHEET_ID = '';
+var SHOW_TAB = 'data';   // nome do tab na Sheet pública
+var POLL_MS  = 3000;     // 3 segundos
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+var rows = [], days = [], currentDay = 0;
+var screenNames = ['Screen 1','Screen 2','Screen 3','Screen 4'];
+var DEPT_COLOR = {SND:'#f5a623',LGT:'#4a7cf7',VID:'#9b6bff',CAM:'#3dd68c',STG:'#8b91a8'};
+var firstLoad = true;
+
+// ─── HELPERS ───────────────────────────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtDur(d){if(!d)return'--';return String(Math.floor(d/60)).padStart(2,'0')+':'+String(d%60).padStart(2,'0');}
+function dl(url){return url?'<a href="'+esc(url)+'" target="_blank" class="dl">&#8659;</a>':'';}
+
+// ─── FETCH DATA from public Sheet via JSONP ─────────────────────────────────
+function fetchData() {
+  if(!SHEET_ID){return;}
+  var dot = document.getElementById('dot');
+  if(dot) dot.style.background = 'var(--amber)';
+
+  var url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID +
+            '/gviz/tq?tqx=out:json&sheet=' + encodeURIComponent(SHOW_TAB) +
+            '&callback=_cb&_=' + Date.now();
+
+  var s = document.createElement('script');
+  window._cb = function(data) {
+    if(dot) dot.style.background = 'var(--green)';
+    document.getElementById('stSync').textContent =
+      'sync ' + new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    try { processSheet(data); } catch(e) { console.error(e); }
+    if(s.parentNode) document.head.removeChild(s);
+  };
+  s.onerror = function(){
+    if(dot) dot.style.background = 'var(--red)';
+    if(s.parentNode) document.head.removeChild(s);
+  };
+  s.src = url;
+  document.head.appendChild(s);
+}
+
+// ─── PARSE SHEET DATA ───────────────────────────────────────────────────────
+function processSheet(data) {
+  var table = data.table;
+  if(!table || !table.rows || !table.rows.length) return;
+
+  // First row = headers, second row = metadata JSON, rest = day data
+  var firstRow = table.rows[0];
+  var type = firstRow.c[0] ? String(firstRow.c[0].v||'') : '';
+
+  if(type === '__meta__') {
+    // Row 1: metadata (show name, screen names, days structure)
+    var metaJson = firstRow.c[1] ? String(firstRow.c[1].v||'{}') : '{}';
+    var meta = JSON.parse(metaJson);
+    if(meta.name) document.getElementById('topName').textContent = meta.name;
+    if(meta.screenNames) {
+      screenNames = meta.screenNames;
+      for(var i=0;i<4;i++){var th=document.getElementById('th'+i);if(th)th.textContent=screenNames[i];}
+    }
+    if(meta.days) {
+      days = meta.days;
+      if(!days[currentDay]) currentDay = 0;
+      rows = days[currentDay].rows || [];
+    }
+  } else {
+    // Legacy: single JSON blob in first cell
+    var json = firstRow.c[0] ? String(firstRow.c[0].v||'[]') : '[]';
+    var parsed = JSON.parse(json);
+    if(parsed.days) {
+      days = parsed.days;
+      if(parsed.screenNames) {
+        screenNames = parsed.screenNames;
+        for(var i=0;i<4;i++){var th=document.getElementById('th'+i);if(th)th.textContent=screenNames[i];}
+      }
+      if(!days[currentDay]) currentDay = 0;
+      rows = days[currentDay].rows || [];
+      if(parsed.name) document.getElementById('topName').textContent = parsed.name;
+    }
+  }
+
+  if(firstLoad) {
+    document.getElementById('loadView').style.display = 'none';
+    document.getElementById('appView').style.display = 'flex';
+    firstLoad = false;
+  }
+  renderTabs();
+  render();
+  updateStats();
+}
+
+// ─── RENDER ─────────────────────────────────────────────────────────────────
+function renderTabs() {
+  if(days.length <= 1) { document.getElementById('tabBar').innerHTML = ''; return; }
+  var h = '';
+  for(var i=0;i<days.length;i++)
+    h += '<button class="tab'+(i===currentDay?' active':'')+'" onclick="switchDay('+i+')">'+esc(days[i].label||'Day '+(i+1))+'</button>';
+  document.getElementById('tabBar').innerHTML = h;
+}
+
+function switchDay(idx) { currentDay=idx; rows=days[idx].rows||[]; renderTabs(); render(); updateStats(); }
+
+function render() {
+  var body = document.getElementById('tbody');
+  if(!rows.length) { body.innerHTML='<tr><td colspan="14" style="padding:40px;text-align:center;color:var(--muted)">Sem items</td></tr>'; return; }
+  var now = new Date(), nowM = now.getHours()*60+now.getMinutes()+(now.getSeconds()/60);
+  var h='', num=0;
+
+  rows.forEach(function(r) {
+    if(r.type === 'sec') {
+      h += '<tr class="sec-row"><td colspan="14"><div class="sec-name" style="color:'+esc(r.color||'#4a7cf7')+'">'+esc((r.name||'').toUpperCase())+'</div></td></tr>';
+      return;
+    }
+    num++;
+    var sm = 0, isLive = false, isDone = false;
+    if(r.start) {
+      var p=r.start.split(':'); sm=parseInt(p[0]||0)*60+parseInt(p[1]||0);
+      isLive = nowM >= sm && nowM < sm+(r.dur||0);
+      isDone = nowM >= sm+(r.dur||0) && r.dur > 0;
+    }
+    var pct = isLive ? Math.min((nowM-sm)/(r.dur||1)*100,100) : 0;
+    var pills = '';
+    if(r.depts&&r.depts.length) r.depts.forEach(function(d){var dc=DEPT_COLOR[d]||'#888';pills+='<span class="dept" style="background:'+dc+'22;color:'+dc+'">'+d+'</span>';});
+    var prog = '<div class="prog-bar"><div class="prog-fill" id="pf_'+r.id+'" style="width:'+pct.toFixed(1)+'%"></div></div>';
+    var cls = isLive ? 'live-row' : isDone ? 'done-row' : '';
+
+    h += '<tr class="'+cls+'" id="tr_'+r.id+'">';
+    h += '<td><div class="cell" style="text-align:center;font-size:10px;color:var(--muted)">'+(isLive?'&#9658;':num)+'</div></td>';
+    h += '<td><div class="cell"><div class="item-name">'+esc(r.name||'')+'</div>'+
+         (r.speaker?'<div class="item-speaker">'+esc(r.speaker)+'</div>':'')+
+         '<div class="item-meta">'+(r.start||'')+(r.dur?' &middot; '+fmtDur(r.dur):'')+'</div>'+
+         pills+(isLive?prog:'')+'</div></td>';
+    h += '<td><div class="cell" style="font-family:Courier New,monospace;font-size:10px;color:var(--muted)">'+fmtDur(r.dur)+'</div></td>';
+    h += '<td><div class="cell" style="font-family:Courier New,monospace;font-size:11px;color:var(--muted)">'+(r.start||'')+'</div></td>';
+    h += '<td><div class="cell" style="color:var(--amber);font-size:11px">'+esc(r.audio||'')+dl(r.audioUrl)+'</div></td>';
+    h += '<td><div class="cell" style="color:var(--cyan);font-size:11px">'+esc(r.slides||'')+'</div></td>';
+    h += '<td class="hide-mob"><div class="cell" style="color:var(--purple);font-size:11px">'+esc(r.video||'')+dl(r.videoUrl)+'</div></td>';
+    h += '<td class="hide-mob"><div class="cell" style="color:var(--blue);font-size:11px">'+esc(r.lights||'')+'</div></td>';
+    h += '<td class="hide-mob"><div class="cell" style="color:var(--green);font-size:11px">'+esc(r.furniture||'')+'</div></td>';
+    for(var si=0;si<4;si++) {
+      var st=((r.screens||[])[si])||'', su=((r.screenUrls||[])[si])||'';
+      h += '<td class="hide-mob"><div class="cell" style="color:rgba(255,255,255,.5);font-size:11px">'+esc(st)+dl(su)+'</div></td>';
+    }
+    h += '<td><div class="cell" style="color:rgba(255,255,255,.45);font-size:11px">'+esc(r.notes||'')+'</div></td>';
+    h += '</tr>';
+  });
+  body.innerHTML = h;
+
+  // Scroll to live item
+  var liveEl = document.querySelector('.live-row');
+  if(liveEl) liveEl.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function updateStats() {
+  var n=0, total=0, first=null;
+  rows.forEach(function(r){if(r.type!=='item')return;n++;total+=r.dur||0;if(!first&&r.start)first=r.start;});
+  document.getElementById('stN').textContent = n;
+  if(first){var p=first.split(':'),wm=parseInt(p[0]||0)*60+parseInt(p[1]||0)+total;document.getElementById('stW').textContent=String(Math.floor(wm/60)%24).padStart(2,'0')+':'+String(wm%60).padStart(2,'0');}
+}
+
+// ─── CLOCK + PROGRESS ───────────────────────────────────────────────────────
+setInterval(function() {
+  var now = new Date();
+  document.getElementById('clk').textContent =
+    String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
+  var nowM = now.getHours()*60+now.getMinutes()+(now.getSeconds()/60);
+  rows.forEach(function(r) {
+    if(!r.start||!r.dur)return;
+    var p=r.start.split(':'),sm=parseInt(p[0]||0)*60+parseInt(p[1]||0);
+    var pf=document.getElementById('pf_'+r.id);
+    if(pf) pf.style.width=Math.min(Math.max((nowM-sm)/(r.dur||1)*100,0),100).toFixed(1)+'%';
+  });
+}, 1000);
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+window.addEventListener('load', function() {
+  // Parse params from URL hash or query string
+  var h = location.hash.replace(/^#/,'');
+  var q = location.search.replace(/^\?/,'');
+  var params = {};
+  [h, q].forEach(function(str) {
+    str.split('&').forEach(function(kv) {
+      var p = kv.split('=');
+      if(p.length >= 2) params[p[0]] = decodeURIComponent(p.slice(1).join('='));
+    });
+  });
+
+  SHEET_ID = params['sheet'] || '';
+  if(params['tab']) SHOW_TAB = params['tab'];
+
+  if(!SHEET_ID) {
+    document.getElementById('loadMsg').innerHTML =
+      '&#127916; Run of Show<br><br>' +
+      '<span style="font-size:11px;color:var(--muted)">Usa o link enviado pelo show caller</span>';
+    return;
+  }
+
+  fetchData();
+  setInterval(fetchData, POLL_MS);
+});
+</script>
+</body>
+</html>
