@@ -234,10 +234,10 @@ function getProgress(r) {
 }
 function nowMins(){var n=new Date();return n.getHours()*60+n.getMinutes();}
 function nowSecs(){var n=new Date();return n.getHours()*3600+n.getMinutes()*60+n.getSeconds();}
-function parseTimeMins(t){if(!t)return -1;var m=t.match(/(\d+):(\d+)/);return m?+m[1]*60+ +m[2]:-1;}
-function parseTimeSecs(t){if(!t)return -1;var m=t.match(/(\d+):(\d+):?(\d*)/);return m?+m[1]*3600+ +m[2]*60+(+m[3]||0):-1;}
-function parseDurMins(d){if(!d)return 0;var m=d.match(/(\d+):(\d+)/);if(m)return +m[1]*60+ +m[2];return parseFloat(d)||0;}
-function parseDurSecs(d){if(!d)return 0;var m=d.match(/(\d+):(\d+):?(\d*)/);if(m)return +m[1]*3600+ +m[2]*60+(+m[3]||0);return parseDurMins(d)*60;}
+function parseTimeMins(t){if(!t)return -1;t=String(t);var m=t.match(/(\d+):(\d+)/);return m?+m[1]*60+ +m[2]:-1;}
+function parseTimeSecs(t){if(!t)return -1;t=String(t);var m=t.match(/(\d+):(\d+):?(\d*)/);return m?+m[1]*3600+ +m[2]*60+(+m[3]||0):-1;}
+function parseDurMins(d){if(!d && d!==0)return 0;d=String(d);var m=d.match(/(\d+):(\d+)/);if(m)return +m[1]*60+ +m[2];return parseFloat(d)||0;}
+function parseDurSecs(d){if(!d && d!==0)return 0;d=String(d);var m=d.match(/(\d+):(\d+):?(\d*)/);if(m)return +m[1]*3600+ +m[2]*60+(+m[3]||0);return parseDurMins(d)*60;}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function updateClock(){
   var n=new Date();
