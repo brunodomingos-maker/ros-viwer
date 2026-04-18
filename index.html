@@ -377,19 +377,17 @@ function syncLiveCue(cue){
     rows=days[currentDay].rows||[];
     renderTabs();
   }
-  // Find the live cue by ID
-  liveIdx=-1;
+  // Find the live cue by ID — check if it actually changed
+  var newIdx=-1;
   if(cue.__cue__){
     for(var i=0;i<rows.length;i++){
-      if(rows[i].id===cue.__cue__){liveIdx=i;break;}
+      if(rows[i].id===cue.__cue__){newIdx=i;break;}
     }
   }
+  var cueChanged = newIdx !== liveIdx;
+  liveIdx = newIdx;
   render();
-  // Scroll to live cue
-  if(liveIdx>=0&&rows[liveIdx]){
-    var el=document.getElementById('mc_'+rows[liveIdx].id)||document.getElementById('tr_'+rows[liveIdx].id);
-    if(el)el.scrollIntoView({behavior:'smooth',block:'center'});
-  }
+  // No forced scroll — user scrolls freely
 }
 
 function showFlash(msg){
@@ -488,8 +486,7 @@ function renderMobile(){
     h+='</div>';
   });
   list.innerHTML=h;
-  var lv=document.getElementById('mc_'+(rows[liveIdx]&&rows[liveIdx].id));
-  if(lv)lv.scrollIntoView({behavior:'smooth',block:'center'});
+  // Scroll handled by syncLiveCue on cue change only
 }
 
 function updateStats(){
