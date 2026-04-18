@@ -501,6 +501,101 @@ function loadPrefs(){
     }
   }catch(e){}
 }
+
+// ─── SECTION COLLAPSE ──────────────────────────────────────────────────────
+function toggleSec(secId) {
+  _collapsedSecs[secId] = !_collapsedSecs[secId];
+  var collapsed = _collapsedSecs[secId];
+  var chv = document.getElementById('schv_' + secId);
+  if (chv) chv.classList.toggle('col', collapsed);
+  var inSec = false, count = 0;
+  var els = document.getElementById('mobContent').children;
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    if (el.classList.contains('mob-sec')) {
+      if (inSec) break;
+      if (el.querySelector('#schv_' + secId)) { inSec = true; continue; }
+    }
+    if (inSec && el.classList.contains('mob-card')) {
+      el.classList.toggle('mob-sec-hidden', collapsed);
+      count++;
+    }
+  }
+  var badge = document.getElementById('sbadge_' + secId);
+  if (badge) badge.textContent = collapsed ? ' (' + count + ')' : '';
+}
+
+// ─── CUE DETAIL MODAL ──────────────────────────────────────────────────────
+function openCueModal(rowId, num) {
+  var r = null;
+  for (var i = 0; i < rows.length; i++) { if (rows[i].id === rowId) { r = rows[i]; break; } }
+  if (!r) return;
+  _openCueId = rowId;
+  document.getElementById('cmNum').textContent = num;
+  document.getElementById('cmTitle').textContent = r.name || '';
+  document.getElementById('cmTime').textContent = r.start || '--:--';
+  document.getElementById('cmDur').textContent = fmtDur(r.dur);
+  var now = new Date(), nowM = now.getHours()*60+now.getMinutes()+(now.getSeconds()/60);
+  var isLive = false;
+  if (r.start && r.dur) {
+    var p = r.start.split(':'), sm = parseInt(p[0])*60+parseInt(p[1]);
+    isLive = nowM >= sm && nowM < sm+r.dur;
+    if (isLive) {
+      document.getElementById('cmProgWrap').style.display = 'block';
+      document.getElementById('cmProg').style.width = Math.min((nowM-sm)/r.dur*100,100).toFixed(1) + '%';
+    } else {
+      document.getElementById('cmProgWrap').style.display = 'none';
+    }
+  }
+  document.getElementById('cmTitle').className = 'cue-modal-title' + (isLive ? ' live' : '');
+  var sc = r.screens || [], body = '';
+  var fields = [
+    {lbl:'Speaker', val:r.speaker, col:'var(--text)'},
+    {lbl:'Audio',   val:r.audio,   col:'#c07a00'},
+    {lbl:'Micro',   val:r.slides,  col:'var(--cyan)'},
+    {lbl:'Video',   val:r.video,   col:'var(--purple)'},
+    {lbl:'Lights',  val:r.lights,  col:'#3451d1'},
+    {lbl:'Stage',   val:r.furniture, col:'#1a7a4a'},
+    {lbl:screenNames[0], val:sc[0], col:'var(--muted)'},
+    {lbl:screenNames[1], val:sc[1], col:'var(--muted)'},
+    {lbl:screenNames[2], val:sc[2], col:'var(--muted)'},
+    {lbl:screenNames[3], val:sc[3], col:'var(--muted)'},
+    {lbl:'Notes',      val:r.notes||r.comments, col:'var(--text)'},
+    {lbl:'PPT Clicks', val:r.pptPages ? (r.pptPages+' clicks') : null, col:'var(--muted)'},
+    {lbl:'Video Dur',  val:r.videoDur, col:'var(--muted)'}
+  ];
+  fields.forEach(function(f) {
+    if (!f.val) return;
+    body += '<div class="cue-field"><div class="cue-field-lbl">'+esc(f.lbl)+'</div>'+
+            '<div class="cue-field-val" style="color:'+f.col+'">'+esc(f.val)+'</div></div>';
+  });
+  if (r.audioUrl) body += '<div class="cue-field"><div class="cue-field-lbl">Audio File</div>'+
+    '<a href="'+esc(r.audioUrl)+'" target="_blank" style="font-size:13px;color:var(--blue);font-weight:600">Open &#8599;</a></div>';
+  if (r.videoUrl) body += '<div class="cue-field"><div class="cue-field-lbl">Video File</div>'+
+    '<a href="'+esc(r.videoUrl)+'" target="_blank" style="font-size:13px;color:var(--blue);font-weight:600">Open &#8599;</a></div>';
+  if (!body) body = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:24px 0">No additional details</div>';
+  document.getElementById('cmBody').innerHTML = body;
+  document.getElementById('cueModalBg').style.display = 'flex';
+}
+
+function closeCueModal() {
+  document.getElementById('cueModalBg').style.display = 'none';
+  _openCueId = null;
+}
+
+setInterval(function() {
+  if (!_openCueId) return;
+  var r = null;
+  for (var i = 0; i < rows.length; i++) { if (rows[i].id === _openCueId) { r = rows[i]; break; } }
+  if (!r || !r.start || !r.dur) return;
+  var now = new Date(), nowM = now.getHours()*60+now.getMinutes()+(now.getSeconds()/60);
+  var p = r.start.split(':'), sm = parseInt(p[0])*60+parseInt(p[1]);
+  if (nowM >= sm && nowM < sm+r.dur) {
+    document.getElementById('cmProgWrap').style.display = 'block';
+    document.getElementById('cmProg').style.width = Math.min((nowM-sm)/r.dur*100,100).toFixed(1) + '%';
+  }
+}, 3000);
+
 </script>
 
 <div id="cueModalBg" class="cue-modal-bg" style="display:none" onclick="if(event.target===this)closeCueModal()">
