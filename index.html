@@ -358,7 +358,7 @@ function fetchMsg(){
       var line=csv.split('\n')[0]||'';
       if(line.charAt(0)==='"')line=line.slice(1,line.lastIndexOf('"'));
       line=line.replace(/""/g,'"').trim();
-      if(line&&line!==lastMsg&&line!=='msg'&&line!=='MESSAGE'){
+      if(line&&line!==lastMsg&&line!=='msg'&&line!=='MESSAGE'&&line.charAt(0)!=='{'){
         lastMsg=line;
         showFlash(line);
       }
