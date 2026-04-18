@@ -98,7 +98,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .mob-field-lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);flex-shrink:0;width:52px;padding:5px 6px;background:rgba(30,40,100,.04);border-right:1px solid var(--border)}
 .mob-field-val{flex:1;word-break:break-word;padding:5px 8px;font-size:12px;font-weight:600;line-height:1.35}
 .mob-prog{position:absolute;bottom:0;left:0;height:3px;background:var(--blue);transition:width 1s linear}
-.mob-sec{cursor:pointer;display:flex;align-items:center;gap:6px}
+.mob-sec{cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 12px;margin:6px -2px 2px;background:rgba(30,40,100,.03);border-radius:8px;border:1px solid rgba(30,40,100,.07)}
 .mob-sec-chv{font-size:10px;transition:transform .2s;display:inline-block;opacity:.6}
 .mob-sec-chv.col{transform:rotate(-90deg)}
 .mob-sec-badge{font-size:9px;opacity:.5;font-weight:400;margin-left:2px}
@@ -353,10 +353,43 @@ function fetchMsg(){
       var ln=csv.split('\n')[0]||'';
       if(ln.charAt(0)==='"')ln=ln.slice(1,ln.lastIndexOf('"'));
       ln=ln.replace(/""/g,'"').trim();
-      if(ln&&ln!==lastMsg&&ln!=='msg'&&ln!=='MESSAGE'&&ln.charAt(0)!=='{'){
-        lastMsg=ln;showFlash(ln);
+      if(!ln||ln===lastMsg)return;
+      lastMsg=ln;
+      // Check if this is a cue sync payload
+      if(ln.indexOf('"__cue__"')!==-1){
+        try{
+          var cue=JSON.parse(ln);
+          if(cue.__cue__!==undefined) syncLiveCue(cue);
+        }catch(e){}
+        return;
+      }
+      // Regular text message — show flash
+      if(ln!=='msg'&&ln!=='MESSAGE'&&ln.charAt(0)!=='{'){
+        showFlash(ln);
       }
     }).catch(function(){});
+}
+
+function syncLiveCue(cue){
+  // Switch day if needed
+  if(cue.__day__!==undefined && cue.__day__!==currentDay && days[cue.__day__]){
+    currentDay=cue.__day__;
+    rows=days[currentDay].rows||[];
+    renderTabs();
+  }
+  // Find the live cue by ID
+  liveIdx=-1;
+  if(cue.__cue__){
+    for(var i=0;i<rows.length;i++){
+      if(rows[i].id===cue.__cue__){liveIdx=i;break;}
+    }
+  }
+  render();
+  // Scroll to live cue
+  if(liveIdx>=0&&rows[liveIdx]){
+    var el=document.getElementById('mc_'+rows[liveIdx].id)||document.getElementById('tr_'+rows[liveIdx].id);
+    if(el)el.scrollIntoView({behavior:'smooth',block:'center'});
+  }
 }
 
 function showFlash(msg){
@@ -364,7 +397,8 @@ function showFlash(msg){
   clearTimeout(window._ft);window._ft=setTimeout(function(){el.classList.remove('show');},4000);
 }
 
-function autoActiveCue(){
+function autoActiveCue(){if(liveIdx>=0)return; // remote cue takes priority
+
   var now=new Date(),nowM=now.getHours()*60+now.getMinutes();
   for(var i=0;i<rows.length;i++){
     var r=rows[i];if(r.type==='sec'||!r.start)continue;
