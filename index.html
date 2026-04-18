@@ -424,7 +424,7 @@ function renderMobile(){
   var now=new Date(),nowM=now.getHours()*60+now.getMinutes()+(now.getSeconds()/60);
   var h='',num=0;
   rows.forEach(function(r,idx){
-    if(r.type==='sec'){_curSecId=r.id;var sc=!!_collapsedSecs[r.id];h+='<div class="mob-sec" style="color:'+esc(r.color||'var(--muted)')+';" onclick="toggleSec(\''+r.id+'\')">';h+='<span class="mob-sec-chv'+(sc?' col':'')+''' id="schv_'+r.id+'">&#9660;</span>';h+=esc(r.name||'');h+='<span class="mob-sec-badge" id="sbadge_'+r.id+'"></span>';h+='</div>';return;}
+    if(r.type==='sec'){_curSecId=r.id;var sc=!!_collapsedSecs[r.id];h+='<div class="mob-sec" style="color:'+esc(r.color||'var(--muted)')+';" onclick="toggleSec(\''+r.id+'\')">';h+='<span class="mob-sec-chv'+(sc?' col':'')+' " id="schv_'+r.id+'">&#9660;</span>';h+=esc(r.name||'');h+='<span class="mob-sec-badge" id="sbadge_'+r.id+'"></span>';h+='</div>';return;}
     num++;
     var sm=0,isLive=(idx===liveIdx),isDone=false;
     if(r.start){var p=r.start.split(':');sm=parseInt(p[0]||0)*60+parseInt(p[1]||0);isDone=!isLive&&nowM>sm+(r.dur||0)&&r.dur>0;}
