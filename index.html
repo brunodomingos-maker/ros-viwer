@@ -267,7 +267,7 @@ var DEPT_LABELS = {SND:'SND',LGT:'LGT',VID:'VID',CAM:'CAM',STG:'STG'};
 var days=[], rows=[], currentDay=0;
 var _collapsedSecs={}, _openCueId=null, _curSecId=null;
 var screenNames=['Screen 1','Screen 2','Screen 3','Screen 4'];
-var firstLoad=true, lastMsg='', liveIdx=-1, cueStart=null;
+var firstLoad=true, lastMsg='', liveIdx=-1, cueStart=null, _remoteCueReceived=false;
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtDur(d){return d?String(Math.floor(d/60)).padStart(2,'0')+':'+String(d%60).padStart(2,'0'):'--';}
@@ -372,6 +372,7 @@ function fetchMsg(){
 }
 
 function syncLiveCue(cue){
+  _remoteCueReceived=true;
   console.log('syncLiveCue received:', JSON.stringify(cue), 'rows available:', rows.length, 'day:', currentDay);
   // Switch day if needed
   if(cue.__day__!==undefined && cue.__day__!==currentDay && days[cue.__day__]){
@@ -405,7 +406,7 @@ function showFlash(msg){
   clearTimeout(window._ft);window._ft=setTimeout(function(){el.classList.remove('show');},4000);
 }
 
-function autoActiveCue(){if(liveIdx>=0)return; // remote cue takes priority
+function autoActiveCue(){if(_remoteCueReceived)return; // editor controls cue
 
   var now=new Date(),nowM=now.getHours()*60+now.getMinutes();
   for(var i=0;i<rows.length;i++){
