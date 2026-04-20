@@ -176,7 +176,10 @@ var state = {
   showId: null,
   data: null,
   liveId: null,
-  itemStart: null
+  itemStart: null,
+  doneIds: [],
+  lastMsgTs: 0,
+  dataFetchAt: 0
 };
 
 function getParam(name){
@@ -220,8 +223,10 @@ function login(role){
   var badge = document.getElementById('roleBadge');
   badge.textContent = role === 'colaborador' ? 'Colaborador' : 'Freelancer';
   badge.className = 'tb-badge ' + (role === 'colaborador' ? 'co' : 'fr');
-  fetchData();
-  setInterval(fetchData, 5000);
+
+  fetchData();                     // 1ª vez: dados completos + live state
+  setInterval(fetchLive, 2000);    // polling rápido só do live/status (2s)
+  setInterval(function(){ fetchData(true); }, 30000); // refetch completo a cada 30s
   setInterval(tickClocks, 1000);
 }
 
@@ -232,10 +237,10 @@ function logout(){
   document.getElementById('loginView').style.display = 'flex';
 }
 
-// ─── FETCH ───────────────────────────────────────────────────
-function fetchData(){
+// ─── FETCH (completo) ────────────────────────────────────────
+function fetchData(isRefresh){
   if (!state.gasUrl || !state.showId) return;
-  var cbName = '_cb' + Date.now();
+  var cbName = '_cb' + Date.now() + Math.floor(Math.random()*999);
   var url = state.gasUrl + (state.gasUrl.indexOf('?') > -1 ? '&' : '?') +
             'action=getData&show=' + encodeURIComponent(state.showId) +
             '&callback=' + cbName;
@@ -247,34 +252,73 @@ function fetchData(){
       try {
         var parsed = JSON.parse(res.data);
         state.data = parsed;
+        state.dataFetchAt = Date.now();
         if (res.name) {
-          var t = res.name;
-          document.getElementById('appTitle').textContent = t;
-          document.title = t;
+          document.getElementById('appTitle').textContent = res.name;
+          document.title = res.name;
         }
+        // aplicar live state vindo do servidor
+        applyLiveFromServer(res);
         render();
       } catch(e) {
-        showError('Erro de leitura');
+        if (!isRefresh) showError('Erro de leitura');
       }
-    } else {
+    } else if (!isRefresh) {
       showError('Sem dados para este show');
     }
   };
-  var s = document.createElement('script');
-  s.id = 'jsonp_' + cbName;
-  s.src = url;
-  s.onerror = function(){
-    delete window[cbName];
-    showError('Erro de rede');
-  };
-  document.head.appendChild(s);
+  var sc = document.createElement('script');
+  sc.id = 'jsonp_' + cbName;
+  sc.src = url;
+  sc.onerror = function(){ delete window[cbName]; if (!isRefresh) showError('Erro de rede'); };
+  document.head.appendChild(sc);
   setTimeout(function(){
-    if (window[cbName]) {
-      delete window[cbName];
-      var el = document.getElementById('jsonp_'+cbName);
-      if (el) el.remove();
-    }
+    if (window[cbName]) { delete window[cbName]; var el = document.getElementById('jsonp_'+cbName); if (el) el.remove(); }
   }, 15000);
+}
+
+// ─── FETCH LIVE (só o estado, rápido) ────────────────────────
+function fetchLive(){
+  if (!state.gasUrl || !state.showId || !state.data) return;
+  var cbName = '_cbl' + Date.now() + Math.floor(Math.random()*999);
+  var url = state.gasUrl + (state.gasUrl.indexOf('?') > -1 ? '&' : '?') +
+            'action=getLive&show=' + encodeURIComponent(state.showId) +
+            '&callback=' + cbName;
+  window[cbName] = function(res){
+    delete window[cbName];
+    var s = document.getElementById('jsonp_'+cbName);
+    if (s) s.remove();
+    if (res && res.ok) applyLiveFromServer(res);
+  };
+  var sc = document.createElement('script');
+  sc.id = 'jsonp_' + cbName;
+  sc.src = url;
+  sc.onerror = function(){ delete window[cbName]; };
+  document.head.appendChild(sc);
+  setTimeout(function(){
+    if (window[cbName]) { delete window[cbName]; var el = document.getElementById('jsonp_'+cbName); if (el) el.remove(); }
+  }, 8000);
+}
+
+function applyLiveFromServer(res){
+  var hasExplicit = res.liveId !== undefined || res.itemStart !== undefined;
+  if (!hasExplicit) {
+    // Se o servidor não enviou estado explícito, faz detecção pela hora (fallback)
+    detectLiveByTime();
+    render();
+    return;
+  }
+  var changed = state.liveId !== res.liveId;
+  state.liveId = res.liveId || null;
+  state.itemStart = res.itemStart ? new Date(res.itemStart) : null;
+  state.doneIds = res.doneIds || [];
+  // mensagem flash
+  if (res.msg && res.msgTs && res.msgTs > state.lastMsgTs) {
+    state.lastMsgTs = res.msgTs;
+    // só mostra se for recente (últimos 15s), para não re-disparar ao reabrir página
+    if (Date.now() - res.msgTs < 15000) showFlash(res.msg);
+  }
+  if (changed) render();
 }
 
 function showError(msg){
@@ -294,13 +338,14 @@ function render(){
     rows = state.data;
   }
 
-  detectLive(rows);
-
   var wrap = document.getElementById('listWrap');
   if (!rows.length) {
     wrap.innerHTML = '<div class="empty"><div class="empty-icon">&#128197;</div><div style="font-weight:700;font-size:15px">Sem items</div></div>';
     return;
   }
+
+  var doneSet = {};
+  for (var d = 0; d < state.doneIds.length; d++) doneSet[state.doneIds[d]] = true;
 
   var h = '', num = 0;
   for (var i = 0; i < rows.length; i++) {
@@ -311,7 +356,7 @@ function render(){
     }
     num++;
     var isLive = state.liveId === r.id;
-    var isDone = r.status === 'done';
+    var isDone = doneSet[r.id] || r.status === 'done';
     var cls = 'cue' + (isLive ? ' active' : '') + (isDone ? ' done' : '');
     var arrow = isLive ? '<span class="live-arr">&#9658;</span>' : '';
     h += '<div class="'+cls+'" id="cue_'+r.id+'">';
@@ -365,12 +410,17 @@ function fmtDur(d){
   return m+'m';
 }
 
-// ─── LIVE DETECTION (baseado em hora actual vs start+dur) ────
-function detectLive(rows){
+// ─── LIVE DETECTION FALLBACK (só se editor não enviou nada) ──
+function detectLiveByTime(){
+  if (!state.data) return;
+  var rows = [];
+  if (state.data.days && state.data.days.length) rows = state.data.days[0].rows || [];
+  else if (Array.isArray(state.data)) rows = state.data;
+
   var now = new Date();
   var nowMin = now.getHours()*60 + now.getMinutes();
-  var prevLive = state.liveId;
   state.liveId = null;
+  state.itemStart = null;
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
     if (r.type !== 'item' || !r.start) continue;
@@ -379,16 +429,22 @@ function detectLive(rows){
     var eMin = sMin + (r.dur||0);
     if (nowMin >= sMin && nowMin < eMin) {
       state.liveId = r.id;
-      if (prevLive !== r.id) {
-        state.itemStart = new Date();
-        state.itemStart.setHours(parseInt(p[0]||0));
-        state.itemStart.setMinutes(parseInt(p[1]||0));
-        state.itemStart.setSeconds(0);
-      }
+      state.itemStart = new Date();
+      state.itemStart.setHours(parseInt(p[0]||0));
+      state.itemStart.setMinutes(parseInt(p[1]||0));
+      state.itemStart.setSeconds(0);
       break;
     }
   }
-  if (!state.liveId) state.itemStart = null;
+}
+
+// ─── FLASH MESSAGE ───────────────────────────────────────────
+function showFlash(msg){
+  var el = document.getElementById('flashEl');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(window._ft);
+  window._ft = setTimeout(function(){ el.classList.remove('show'); }, 3500);
 }
 
 // ─── CLOCKS ──────────────────────────────────────────────────
